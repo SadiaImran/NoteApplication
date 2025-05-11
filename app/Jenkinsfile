@@ -1,0 +1,40 @@
+pipeline {
+    agent any
+
+    environment {
+        APP_DIR = "/var/lib/jenkins/NoteApplication"
+        REPO_URL = "https://github.com/SadiaImran/NoteApplication.git"
+    }
+
+    stages {
+        stage('Clean old project directory') {
+            steps {
+                sh '''
+                if [ -d "$APP_DIR" ]; then
+                    echo "Removing contents of $APP_DIR..."
+                    find "$APP_DIR" -mindepth 1 -delete
+                else
+                    echo "$APP_DIR does not exist, creating it..."
+                    mkdir -p "$APP_DIR"
+                fi
+                '''
+            }
+        }
+
+        stage('Clone repository') {
+            steps {
+                sh '''
+                git clone $REPO_URL $APP_DIR
+                '''
+            }
+        }
+
+        stage('Build & Run Docker Compose') {
+            steps {
+                dir("${APP_DIR}/app") {
+                    sh 'docker compose -p noteapp up -d --build'
+                }
+            }
+        }
+    }
+}
