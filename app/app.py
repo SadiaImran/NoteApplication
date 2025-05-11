@@ -8,7 +8,7 @@ app = Flask(__name__)
 # Database connection setup
 def get_db_connection():
     conn = mysql.connector.connect(
-        host="localhost",
+        host="mysql_db",
         user="root",  # Change this if you use a different user
         password="admin",  # Your MySQL root password
         database="notes"  # Your database name
