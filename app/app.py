@@ -32,7 +32,7 @@ def index():
     conn.close()
     return render_template('index.html', tasks=tasks)
 
-# Route for adding a task
+# Route for adding a task....
 @app.route('/add', methods=['POST'])
 def add_task():
     if request.method == 'POST':
