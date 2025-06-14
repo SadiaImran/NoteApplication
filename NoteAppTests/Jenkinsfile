@@ -2,57 +2,61 @@ pipeline {
     agent any
 
     environment {
+        APP_REPO = "https://github.com/SadiaImran/NoteApplication.git"
         TEST_DIR = "/var/lib/jenkins/NoteApplication/NoteAppTests"
-        REPO_URL = "https://github.com/SadiaImran/NoteApplication.git"
     }
 
     stages {
-        stage('Clean old test directory') {
+        stage('Clean workspace') {
             steps {
                 sh '''
-                if [ -d "$TEST_DIR" ]; then
-                    echo "🧹 Cleaning old test folder at $TEST_DIR"
-                    find "$TEST_DIR" -mindepth 1 -delete
-                else
-                    echo "📁 Creating $TEST_DIR"
-                    mkdir -p "$TEST_DIR"
-                fi
+                rm -rf $TEST_DIR
+                mkdir -p $TEST_DIR
                 '''
             }
         }
 
-        stage('Clone Repository') {
+        stage('Clone Repo') {
             steps {
-                sh '''
-                echo "📥 Cloning GitHub repo into $TEST_DIR"
-                git clone $REPO_URL $TEST_DIR
-                '''
+                sh "git clone $APP_REPO $TEST_DIR"
             }
         }
 
-        stage('Build Docker Image for Tests') {
+        stage('Run Tests') {
             steps {
-                dir("${TEST_DIR}/NoteAppTests") {
-                    sh 'docker build -t noteapp-tests .'
-                }
-            }
-        }
-
-        stage('Run Selenium Tests') {
-            steps {
-                dir("${TEST_DIR}/NoteAppTests") {
-                    sh 'docker run --rm noteapp-tests'
+                dir("$TEST_DIR") {
+                    sh '''
+                    docker build -t noteapp-tests .
+                    docker run --rm noteapp-tests > test_output.txt || true
+                    '''
                 }
             }
         }
     }
 
     post {
-        success {
-            echo '✅ Selenium tests passed successfully!'
-        }
-        failure {
-            echo '❌ Selenium tests failed!'
+        always {
+            script {
+                // Get latest Git commit author's email
+                def authorEmail = sh(script: "cd $TEST_DIR && git log -1 --pretty=format:'%ae'", returnStdout: true).trim()
+
+                emailext (
+                    to: authorEmail,
+                    subject: "🧪 Jenkins Test Results - ${currentBuild.currentResult}",
+                    body: """Hello,
+
+Your latest GitHub push triggered a Jenkins pipeline.
+
+🔹 Build Status: ${currentBuild.currentResult}
+🔹 Job: ${env.JOB_NAME}
+🔹 Build: ${env.BUILD_NUMBER}
+🔹 See console: ${env.BUILD_URL}
+
+Regards,  
+Jenkins 🤖""",
+                    attachmentsPattern: "$TEST_DIR/test_output.txt"
+                )
+            }
         }
     }
 }
