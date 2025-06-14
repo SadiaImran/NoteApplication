@@ -1,0 +1,58 @@
+pipeline {
+    agent any
+
+    environment {
+        TEST_DIR = "/var/lib/jenkins/NoteApplication/NoteAppTests"
+        REPO_URL = "https://github.com/SadiaImran/NoteApplication.git"
+    }
+
+    stages {
+        stage('Clean old test directory') {
+            steps {
+                sh '''
+                if [ -d "$TEST_DIR" ]; then
+                    echo "🧹 Cleaning old test folder at $TEST_DIR"
+                    find "$TEST_DIR" -mindepth 1 -delete
+                else
+                    echo "📁 Creating $TEST_DIR"
+                    mkdir -p "$TEST_DIR"
+                fi
+                '''
+            }
+        }
+
+        stage('Clone Repository') {
+            steps {
+                sh '''
+                echo "📥 Cloning GitHub repo into $TEST_DIR"
+                git clone $REPO_URL $TEST_DIR
+                '''
+            }
+        }
+
+        stage('Build Docker Image for Tests') {
+            steps {
+                dir("${TEST_DIR}/NoteAppTests") {
+                    sh 'docker build -t noteapp-tests .'
+                }
+            }
+        }
+
+        stage('Run Selenium Tests') {
+            steps {
+                dir("${TEST_DIR}/NoteAppTests") {
+                    sh 'docker run --rm noteapp-tests'
+                }
+            }
+        }
+    }
+
+    post {
+        success {
+            echo '✅ Selenium tests passed successfully!'
+        }
+        failure {
+            echo '❌ Selenium tests failed!'
+        }
+    }
+}
