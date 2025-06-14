@@ -2,29 +2,30 @@ pipeline {
     agent any
 
     environment {
-        APP_REPO = "https://github.com/SadiaImran/NoteApplication.git"
-        TEST_DIR = "/var/lib/jenkins/NoteApplication/NoteAppTests"
+        REPO_URL = "https://github.com/SadiaImran/NoteApplication.git"
+        PROJECT_DIR = "/var/lib/jenkins/NoteApplication"
+        TEST_DIR = "NoteAppTests"
     }
 
     stages {
         stage('Clean workspace') {
             steps {
                 sh '''
-                rm -rf $TEST_DIR
-                mkdir -p $TEST_DIR
+                rm -rf $PROJECT_DIR
+                mkdir -p $PROJECT_DIR
                 '''
             }
         }
 
-        stage('Clone Repo') {
+        stage('Clone Repository') {
             steps {
-                sh "git clone $APP_REPO $TEST_DIR"
+                sh "git clone $REPO_URL $PROJECT_DIR"
             }
         }
 
-        stage('Run Tests') {
+        stage('Build and Run Tests') {
             steps {
-                dir("$TEST_DIR") {
+                dir("${PROJECT_DIR}/${TEST_DIR}") {
                     sh '''
                     docker build -t noteapp-tests .
                     docker run --rm noteapp-tests > test_output.txt || true
@@ -37,26 +38,31 @@ pipeline {
     post {
         always {
             script {
-                // Get latest Git commit author's email
-                def authorEmail = sh(script: "cd $TEST_DIR && git log -1 --pretty=format:'%ae'", returnStdout: true).trim()
+                def authorEmail = sh(
+                    script: "cd $PROJECT_DIR && git log -1 --pretty=format:'%ae'",
+                    returnStdout: true
+                ).trim()
 
                 emailext (
                     to: authorEmail,
-                    subject: "🧪 Jenkins Test Results - ${currentBuild.currentResult}",
-                    body: """Hello,
+                    subject: "✅ Jenkins Test Results - ${currentBuild.currentResult}",
+                    body: """
+Hello ${authorEmail},
 
-Your latest GitHub push triggered a Jenkins pipeline.
+Your push to the NoteApplication repository triggered a Jenkins test run.
 
-🔹 Build Status: ${currentBuild.currentResult}
-🔹 Job: ${env.JOB_NAME}
-🔹 Build: ${env.BUILD_NUMBER}
-🔹 See console: ${env.BUILD_URL}
+🔹 Status: ${currentBuild.currentResult}  
+🔹 Job: ${env.JOB_NAME}  
+🔹 Build: #${env.BUILD_NUMBER}  
+🔹 View Logs: ${env.BUILD_URL}
 
 Regards,  
-Jenkins 🤖""",
-                    attachmentsPattern: "$TEST_DIR/test_output.txt"
+Jenkins 🤖
+""",
+                    attachmentsPattern: "${PROJECT_DIR}/${TEST_DIR}/test_output.txt"
                 )
             }
         }
     }
 }
+
